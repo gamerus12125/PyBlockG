@@ -8,6 +8,8 @@ HEIGHT = 1000
 GRAVITY = 0.2
 
 all_sprites = pygame.sprite.Group()
+all_blocks = pygame.sprite.Group()
+all_entities = pygame.sprite.Group()
 screen_rect = (0, 0, WIDTH, HEIGHT)
 
 
@@ -71,7 +73,6 @@ class Interface:
 
 
 class Timer:
-
     def __init__(self):
         self.start_time = None
 
@@ -87,7 +88,7 @@ class Timer:
 
 class Wall(pygame.sprite.Sprite):
     def __init__(self, w, h, x, y):
-        super().__init__(all_sprites)
+        super().__init__(all_sprites, all_blocks)
         self.height = h
         self.width = w
         self.x = x
@@ -101,12 +102,12 @@ class Wall(pygame.sprite.Sprite):
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
-        super().__init__(all_sprites)
+        super().__init__(all_sprites, all_entities)
         self.is_player_collide = False
         self.direction = direction
         self.vx = -4 if direction == "L" else 4
         self.frames = []
-        self.cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4, 1)
+        self.cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = pygame.Rect(x, y, 64, 32)
@@ -114,21 +115,19 @@ class Bullet(pygame.sprite.Sprite):
         self.animation_timer.start()
         self.animation_time = 0.1
 
-    def cut_sheet(self, sheet, columns, rows):
+    def cut_sheet(self, sheet, columns):
         x = sheet.get_width() // columns
-        y = sheet.get_height() // rows - 1
+        y = 0
         if self.direction == "L":
-            for j in range(rows):
-                for i in range(columns):
-                    self.frames.append(
-                        pygame.transform.flip(
-                            pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y * j, 32, 16)), 2), True,
-                            False))
+            for i in range(columns):
+                self.frames.append(
+                    pygame.transform.flip(
+                        pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y, 32, 16)), 2), True,
+                        False))
         else:
-            for j in range(rows):
-                for i in range(columns):
-                    self.frames.append(
-                        pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y * j, 32, 16)), 2))
+            for i in range(columns):
+                self.frames.append(
+                    pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y, 32, 16)), 2))
 
     def update(self):
         colliders = pygame.sprite.spritecollide(self, all_sprites, False)
@@ -149,69 +148,47 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, w, h, x, y, animation):
-        super().__init__(all_sprites)
+    def __init__(self, w, h, x, y):
+        super().__init__(all_sprites, all_entities)
         self.hp = 100
         self.rect = pygame.rect.Rect(x, y, w, h)
 
         self.is_down = False
-        self.is_walk_r = False
-        self.is_walk_l = False
+        self.is_walk = False
         self.is_idle = True
         self.is_attack = False
         self.fall_speed = 0
+        self.dx = 0
+        self.dy = 0
+        self.walk_speed = 3
 
         self.ammo = 10
         self.is_reload = False
         self.direction = "R"
         self.shoot_clock = Timer()
         self.shoot_clock.start()
-        self.animations = animation
+        sprites = {"idle": load_image("Pink_Monster_Idle_4.png"), "run": load_image("Pink_Monster_Run_6.png"),
+                   "attack": load_image("Pink_Monster_Attack1_4.png")}
 
-        self.images = {"idle_r": [], "idle_l": [], "run_r": [], "run_l": [], "attack_r": [], "attack_l": []}
+        self.images = {"idle": [], "run": [], "attack": []}
+        self.images_size = {"idle": 128, "run": 192, "attack": 128}
 
-        self.init_images(animation)
+        self.init_images(sprites)
 
         self.index = 0
-        self.image = self.images["idle_r"][self.index]
-        self.animation_time = 0.15
+        self.image = self.images["idle"][0]
+        self.animation_time = 0.1
 
-        self.anim_cur_time = Timer()
-        self.anim_cur_time.start()
+        self.anim_time = Timer()
+        self.anim_time.start()
 
     def init_images(self, animation):
-        for i in range(0, 128, 32):
-            self.images["idle_r"].append(
-                pygame.transform.scale_by(animation["idle"].subsurface(pygame.Rect(i, 0, 32, 32)), 3))
-            self.images["idle_l"].append(
-                pygame.transform.flip(
-                    pygame.transform.scale_by(animation["idle"].subsurface(pygame.Rect(i, 0, 32, 32)), 3), True, False))
-
-        for i in range(0, 181, 32):
-            self.images["run_r"].append(
-                pygame.transform.scale_by(animation["run"].subsurface(pygame.Rect(i, 0, 32, 32)), 3))
-            self.images["run_l"].append(
-                pygame.transform.flip(pygame.transform.scale_by(animation["run"].subsurface(pygame.Rect(i, 0, 32, 32)),
-                                                                3), True, False))
-        for i in range(0, 97, 32):
-            self.images["attack_r"].append(
-                pygame.transform.scale_by(animation["attack"].subsurface(pygame.Rect(i, 0, 32, 32)), 3))
-            self.images["attack_l"].append(
-                pygame.transform.flip(
-                    pygame.transform.scale_by(animation["attack"].subsurface(pygame.Rect(i, 0, 32, 32)), 3), True,
-                    False))
+        for key in self.images.keys():
+            for i in range(0, self.images_size[key], 32):
+                self.images[key].append(
+                    pygame.transform.scale_by(animation[key].subsurface(pygame.Rect(i, 0, 32, 32)), 3))
 
     def update(self):
-        self.fall_speed += GRAVITY
-        self.rect = self.rect.move(0, self.fall_speed)
-        colliders = pygame.sprite.spritecollide(self, all_sprites, False)
-        colliders.remove(self)
-        if colliders and Wall.__name__ in colliders.__str__():
-            self.rect = self.rect.move(0, -self.fall_speed)
-            self.fall_speed = 0
-            self.is_down = False
-        else:
-            self.is_down = True
         if self.is_reload:
             if self.shoot_clock.get_time() > 1:
                 self.is_reload = False
@@ -222,89 +199,76 @@ class Player(pygame.sprite.Sprite):
     def draw(self):
         if self.is_attack:
             if self.direction == "L":
-                self.animation("attack_l")
+                self.animation("attack", True)
             else:
-                self.animation("attack_r")
-        elif self.is_walk_r:
-            self.animation("run_r")
-        elif self.is_walk_l:
-            self.animation("run_l")
+                self.animation("attack", False)
+        elif self.is_walk:
+            if self.direction == "L":
+                self.animation("run", True)
+            else:
+                self.animation("run", False)
         else:
             if self.direction == "L":
-                self.animation("idle_l")
+                self.animation("idle", True)
             else:
-                self.animation("idle_r")
+                self.animation("idle", False)
 
-    def animation(self, name):
-        anim = name
-        if self.anim_cur_time.get_time() > self.animation_time:
-            self.anim_cur_time.stop()
-            self.anim_cur_time.start()
+    def animation(self, name, flip):
+        if self.anim_time.get_time() > self.animation_time:
+            self.anim_time.stop()
+            self.anim_time.start()
             self.index += 1
-            if self.index >= len(self.images[anim]):
-                if self.is_attack:
-                    if self.direction == "L":
-                        Bullet(self.rect.x - 1, int(self.rect.y + 5), self.direction)
-                    else:
-                        Bullet(self.rect.x + self.rect.w + 1, int(self.rect.y + 5), self.direction)
+            if self.index >= len(self.images[name]):
+                if name == "attack":
+                    Bullet(self.rect.x - 1, int(self.rect.y + 5), self.direction)
                     self.is_attack = False
                 self.index = 0
-        if self.is_attack and self.direction == "R":
-            anim = "attack_r"
-        elif self.is_attack and self.direction == "L":
-            anim = "attack_l"
-        self.image = self.images[anim][self.index]
-        screen.blit(self.images[anim][self.index], (self.rect.x - 16, self.rect.y - 32))
+        if self.index >= len(self.images[name]):
+            self.index = 0
+        self.image = self.images[name][self.index]
+        screen.blit(pygame.transform.flip(self.images[name][self.index], flip, False),
+                    (self.rect.x - 16, self.rect.y - 32))
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
 
-    def jump(self):
-        if not self.is_down:
-            self.fall_speed = -10
+    def fall(self):
+        self.fall_speed += GRAVITY
+        self.dy = round(self.fall_speed)
+        self.rect.y += self.dy
+        self.is_down = True
 
     def move(self):
-        if keys[pygame.K_SPACE] and not self.is_attack:
-            self.jump()
-        if keys[pygame.K_d] and not self.is_attack:
-            self.rect = self.rect.move(2, 0)
-            self.direction = "R"
-            is_collide = pygame.sprite.spritecollideany(self, all_sprites)
-            if is_collide and is_collide != self:
-                self.rect = self.rect.move(-2, 0)
-                if self.is_walk_l or self.is_walk_r:
-                    self.index = 0
-                self.is_walk_r = False
-                self.is_walk_l = False
-                return False
+        self.fall()
+        colliders = pygame.sprite.spritecollide(self, all_blocks, False)
+        if colliders:
+            self.rect.y -= self.dy
+            if self.dy > 0:
+                self.is_down = False
+                self.fall_speed = 0
+            elif self.dy < 0:
+                self.fall_speed = 0
+        if not self.is_attack:
+            if keys[pygame.K_SPACE] and not self.is_down:
+                self.fall_speed = -10
+            if keys[pygame.K_d]:
+                self.dx = self.walk_speed
+                self.rect.x += self.dx
+                self.is_walk = True
+                self.direction = "R"
+            elif keys[pygame.K_a]:
+                self.dx = -self.walk_speed
+                self.rect.x += self.dx
+                self.is_walk = True
+                self.direction = "L"
             else:
-                self.is_walk_l = False
-                self.is_walk_r = True
-                if self.is_idle:
+                if self.is_walk:
                     self.index = 0
-                self.is_idle = False
-                return True
-        elif keys[pygame.K_a] and not self.is_attack:
-            self.rect = self.rect.move(-2, 0)
-            self.direction = "L"
-            is_collide = pygame.sprite.spritecollideany(self, all_sprites)
-            if is_collide and is_collide != self:
-                self.rect = self.rect.move(2, 0)
-                if self.is_walk_l or self.is_walk_r:
-                    self.index = 0
-                self.is_walk_r = False
-                self.is_walk_l = False
-                return False
-            else:
-                self.is_walk_l = True
-                self.is_walk_r = False
-                if self.is_idle:
-                    self.index = 0
-                self.is_idle = False
-                return True
-        else:
-            if self.is_walk_l or self.is_walk_r:
-                self.index = 0
-            self.is_walk_r = False
-            self.is_walk_l = False
+                    self.is_walk = False
+        colliders = pygame.sprite.spritecollide(self, all_blocks, False)
+        if colliders:
+            self.is_walk = False
+            self.rect.x -= self.dx
+        self.dx = 0
+        self.dy = 0
 
     def shoot(self):
         if self.shoot_clock.get_time() > 0.5 and not self.is_reload:
@@ -335,14 +299,12 @@ if __name__ == '__main__':
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode(size)
 
-    player_animations = {"idle": load_image("Pink_Monster_Idle_4.png", -1),
-                         "run": load_image("Pink_Monster_Run_6.png", -1),
-                         "attack": load_image("Pink_Monster_Attack1_4.png", -1)}
-
     floor = Wall(width, 30, 0, height - 30)
     block = Wall(300, 30, 200, 800)
     struc = Wall(50, 300, 700, 500)
-    player = Player(64, 64, 0, 300, player_animations)
+    player = Player(64, 64, 0, 300)
+
+    a = load_image("star.png")
 
     interface = Interface(player)
 
