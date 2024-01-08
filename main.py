@@ -2,9 +2,11 @@ import pygame
 import os
 import time
 import random
+import sys
+import pytmx
 
 WIDTH = 1000
-HEIGHT = 1000
+HEIGHT = 800
 GRAVITY = 0.2
 
 all_sprites = pygame.sprite.Group()
@@ -29,18 +31,47 @@ def load_image(name, color_key=None):
     return image
 
 
-class Particle(pygame.sprite.Sprite):
-    def __init__(self, pos, dx, dy):
-        super().__init__(all_sprites)
-        self.fire = [load_image("star.png")]
-        for scale in (5, 10, 20):
-            self.fire.append(pygame.transform.scale(self.fire[0], (scale, scale)))
-        self.image = random.choice(self.fire)
-        self.rect = self.image.get_rect()
+def terminate():
+    pygame.quit()
+    sys.exit()
 
+
+def create_particles(position, image_name):
+    particle_count = 20
+    numbers = range(-5, 6)
+    for _ in range(particle_count):
+        Particle(position, random.choice(numbers), random.choice(numbers), image_name)
+
+
+def load_level(filename):
+    filename = "data/" + filename
+    level_map = pytmx.util_pygame.load_pygame(filename)
+    return level_map
+
+
+def generate_level(game_map):
+    for y in range(game_map.height):
+        for x in range(game_map.width):
+            tile_id = game_map.get_tile_gid(x, y, 0)
+            if tile_id:
+                image = game_map.get_tile_image_by_gid(tile_id)
+                if game_map.tiledgidmap[tile_id] not in [0, 1, 2, 3, 4, 5,
+                                                         130]:  # проверка, что тайлы не являются проходимыми блоками
+                    Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
+                else:
+                    Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites)
+
+
+class Particle(pygame.sprite.Sprite):
+    def __init__(self, pos, dx, dy, image_name):
+        super().__init__(all_sprites)
+        self.image = [load_image(image_name)]
+        for scale in (5, 10, 20):
+            self.image.append(pygame.transform.scale(self.image[0], (scale, scale)))
+        self.image = random.choice(self.image)
+        self.rect = self.image.get_rect()
         self.velocity = [dx, dy]
         self.rect.x, self.rect.y = pos
-
         self.gravity = GRAVITY
 
     def update(self):
@@ -86,18 +117,21 @@ class Timer:
         return time.perf_counter() - self.start_time
 
 
-class Wall(pygame.sprite.Sprite):
-    def __init__(self, w, h, x, y):
-        super().__init__(all_sprites, all_blocks)
-        self.height = h
-        self.width = w
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, x, y, img, *args):
+        super().__init__(*args)
+        self.height = 32
+        self.width = 32
         self.x = x
         self.y = y
-        self.is_player_collide = True
-        self.rect = pygame.Rect(x, y, w, h)
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        pygame.draw.rect(screen, (255, 255, 255), (self.x, self.y, self.width, self.height))
+        screen.blit(self.image, pygame.Rect(self.x, self.y, self.width, self.height))
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -130,9 +164,9 @@ class Bullet(pygame.sprite.Sprite):
                     pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y, 32, 16)), 2))
 
     def update(self):
-        colliders = pygame.sprite.spritecollide(self, all_sprites, False)
-        if colliders and Wall.__name__ in colliders.__str__():
-            create_particles((self.rect.x, self.rect.y))
+        colliders = pygame.sprite.spritecollide(self, all_blocks, False)
+        if colliders and Tile.__name__ in colliders.__str__():
+            create_particles((self.rect.x, self.rect.y), "star.png")
             self.kill()
         elif self.animation_timer.get_time() >= self.animation_time:
             self.cur_frame = 0 if self.cur_frame + 1 == len(self.frames) else self.cur_frame + 1
@@ -148,7 +182,7 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, w, h, x, y):
+    def __init__(self, x, y, w, h):
         super().__init__(all_sprites, all_entities)
         self.hp = 100
         self.rect = pygame.rect.Rect(x, y, w, h)
@@ -181,6 +215,8 @@ class Player(pygame.sprite.Sprite):
 
         self.anim_time = Timer()
         self.anim_time.start()
+
+        self.mask = pygame.mask.from_surface(self.image)
 
     def init_images(self, animation):
         for key in self.images.keys():
@@ -284,44 +320,70 @@ class Player(pygame.sprite.Sprite):
                 self.shoot_clock.start()
 
 
-def create_particles(position):
-    particle_count = 20
-    numbers = range(-5, 6)
-    for _ in range(particle_count):
-        Particle(position, random.choice(numbers), random.choice(numbers))
+class Game:
+    def __init__(self):
+        pygame.init()
+        pygame.display.set_caption('Доска')
+        self.size = WIDTH, HEIGHT
+        self.fps = 60
+        self.clock = pygame.time.Clock()
+        global screen
+        screen = pygame.display.set_mode(self.size)
+
+        self.player = Player(0, 300, 60, 64)
+
+        self.interface = Interface(self.player)
+
+        self.running = True
+        self.start_screen()
+        self.start_game()
+
+    def start_screen(self):
+        intro_text = ["PyGame", "",
+                      "Правила игры"]
+        fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        font = pygame.font.Font(None, 30)
+        text_coord = 50
+        for line in intro_text:
+            string_rendered = font.render(line, 1, pygame.Color('black'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = 10
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+
+        pygame.display.flip()
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminate()
+                elif event.type == pygame.KEYDOWN or \
+                        event.type == pygame.MOUSEBUTTONDOWN:
+                    return
+
+    def start_game(self):
+        level = load_level("map.tmx")
+        generate_level(level)
+        while self.running:
+            global keys
+            keys = pygame.key.get_pressed()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.player.shoot()
+
+            screen.fill((100, 0, 0))
+            all_sprites.update()
+
+            self.interface.render()
+
+            pygame.display.flip()
+            self.clock.tick(self.fps)
 
 
 if __name__ == '__main__':
     pygame.init()
-    pygame.display.set_caption('Доска')
-    size = width, height = WIDTH, HEIGHT
-    fps = 60
-    clock = pygame.time.Clock()
-    screen = pygame.display.set_mode(size)
-
-    floor = Wall(width, 30, 0, height - 30)
-    block = Wall(300, 30, 200, 800)
-    struc = Wall(50, 300, 700, 500)
-    player = Player(64, 64, 0, 300)
-
-    a = load_image("star.png")
-
-    interface = Interface(player)
-
-    running = True
-
-    while running:
-        keys = pygame.key.get_pressed()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                player.shoot()
-
-        screen.fill((100, 0, 0))
-        all_sprites.update()
-
-        interface.render()
-
-        pygame.display.flip()
-        clock.tick(fps)
+    game = Game()

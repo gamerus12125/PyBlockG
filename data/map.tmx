@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="2" nextobjectid="1">
+ <tileset firstgid="1" source="Tiles.tsx"/>
+ <tileset firstgid="626" source="Z:/Tiled/PythonGame/Tiles.tsx"/>
+ <layer id="1" name="Слой тайлов 1" width="30" height="20">
+  <data encoding="base64" compression="zlib">
+   eJztlO8JwjAQxROr35xA2ynUuoTinx1cxJF0i7qFczTgC83hIyQNgkEqPfhxSXq5l+uHp9QYQw4NCjB12V/nigWoHEtHSeSKFViDGmwcNZFTd9/Dv+nufqQ7zjs8XetB1nMm6u07wgxcqfYb/1k7Les54j9lgDkZYGpemaFwvdlDZS86N3BXnQ+JB8naetD2g3l9H5W3V4T0PYFzpM8BHEn3ktB9YOBGd5lpIutUPWe/B397AgNawlA23r7tOfPvh3r4OrH7qfrYO0M1vH8B4g14nQ==
+  </data>
+ </layer>
+</map>
