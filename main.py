@@ -5,13 +5,17 @@ import random
 import sys
 import pytmx
 
-WIDTH = 1000
-HEIGHT = 800
-GRAVITY = 0.2
+WIDTH = 960
+HEIGHT = 640
+GRAVITY = 0.3
 
 all_sprites = pygame.sprite.Group()
 all_blocks = pygame.sprite.Group()
 all_entities = pygame.sprite.Group()
+all_items = pygame.sprite.Group()
+player_group = pygame.sprite.Group()
+functional_rects = []
+functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
 
 
@@ -43,6 +47,25 @@ def create_particles(position, image_name):
         Particle(position, random.choice(numbers), random.choice(numbers), image_name)
 
 
+def cut_sheet(sheet, columns, rows, mult=2, flip=False):
+    frames = []
+    x = sheet.get_width() // columns
+    y = sheet.get_height() // rows
+    for a in range(rows):
+        for i in range(columns):
+            frames.append(
+                pygame.transform.flip(
+                    pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y * a, x, y)), mult), flip, False))
+    return frames
+
+
+def spawn_coins(x, y, amount):
+    coins = [random.randint(1, 10) for _ in range(amount)]
+    for i in coins:
+        dx = random.randint(-40, 40)
+        Coin(x + dx, y, i)
+
+
 def load_level(filename):
     filename = "data/" + filename
     level_map = pytmx.util_pygame.load_pygame(filename)
@@ -55,11 +78,18 @@ def generate_level(game_map):
             tile_id = game_map.get_tile_gid(x, y, 0)
             if tile_id:
                 image = game_map.get_tile_image_by_gid(tile_id)
-                if game_map.tiledgidmap[tile_id] not in [0, 1, 2, 3, 4, 5,
-                                                         130]:  # проверка, что тайлы не являются проходимыми блоками
-                    Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
-                else:
+                tile_gid = game_map.tiledgidmap[tile_id]
+                if tile_gid == 626:
+                    Chest(x * 32, y * 32, 48, 32, load_image("Chests.png"))
+                elif tile_gid in [627, 641, 642]:
+                    pass
+                elif tile_gid in [0, 1, 2, 3, 4, 5,
+                                  130]:  # проверка, что тайлы являются проходимыми блоками
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites)
+                elif game_map.tiledgidmap[tile_id] == 541:
+                    Coin(x * 32, y * 32, 1)
+                else:
+                    Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
 
 
 class Particle(pygame.sprite.Sprite):
@@ -83,6 +113,47 @@ class Particle(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+class Effect(pygame.sprite.Sprite):
+    def __init__(self, x, y, img):
+        super().__init__(all_sprites)
+        self.x = x
+        self.y = y
+        self.image = img
+        self.rect = img.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.duration = 2
+        self.clock = Timer()
+        self.clock.start()
+
+    def update(self):
+        if self.clock.get_time() >= self.duration:
+            self.kill()
+        else:
+            screen.blit(self.image, self.rect)
+
+
+class AnimatedEffect(Effect):
+    def __init__(self, x, y, sheet):
+        self.frames = cut_sheet(sheet, 6, 1)
+        self.index = 0
+        self.image = self.frames[self.index]
+        self.animation_time = 0.1
+        self.animation_clock = Timer()
+        self.animation_clock.start()
+        super().__init__(x, y, self.image)
+
+    def update(self):
+        if self.animation_clock.get_time() > self.animation_time:
+            self.animation_clock.stop()
+            self.animation_clock.start()
+            self.index += 1
+            if self.index >= len(self.frames):
+                self.kill()
+        else:
+            screen.blit(self.frames[self.index], self.rect)
+
+
 class Interface:
     def __init__(self, player):
         self.x = 10
@@ -91,16 +162,36 @@ class Interface:
         self.height = 50
         self.font = pygame.font.Font(None, 48)
         self.red = (255, 0, 0)
-        self.grenn = (0, 255, 0)
+        self.green = (0, 255, 0)
+        self.blue = (0, 0, 255)
         self.player = player
+
+        self.gem_frames = cut_sheet(load_image("GEM UI Spritesheet.png"), 16, 1, 1)
+        self.index = 0
+        self.animation_time = 0.05
+        self.animation_clock = Timer()
+        self.animation_clock.start()
 
     def render(self):
         ammo = self.font.render(str(self.player.ammo), True, self.red)
-        health = self.font.render(str(self.player.hp), True, self.grenn)
+        health = self.font.render(str(self.player.hp), True, self.green)
+        points = self.font.render(str(self.player.points), True, self.blue)
         screen.blit(ammo, (self.x, self.y))
         screen.blit(health, (self.x + self.width, self.y))
-        pygame.draw.rect(screen, self.grenn, (self.x + self.width - 10, self.y - 10, self.width, self.height), 5)
+        screen.blit(points, (self.x + self.width * 2, self.y))
+        pygame.draw.rect(screen, self.green, (self.x + self.width - 10, self.y - 10, self.width, self.height), 5)
         pygame.draw.rect(screen, self.red, (self.x - 10, self.y - 10, 100, 50), 5)
+        pygame.draw.rect(screen, self.blue, (self.x + self.width * 2 - 10, self.y - 10, self.width, self.height), 5)
+
+        if self.animation_clock.get_time() >= self.animation_time:
+            self.index += 1
+            if self.index >= len(self.gem_frames):
+                self.index = 0
+            self.animation_clock.stop()
+            self.animation_clock.start()
+        screen.blit(self.gem_frames[self.index],
+                    (self.x + self.width * 2 + self.gem_frames[self.index].get_width() * len(str(self.player.points)),
+                     self.y))
 
 
 class Timer:
@@ -122,8 +213,6 @@ class Tile(pygame.sprite.Sprite):
         super().__init__(*args)
         self.height = 32
         self.width = 32
-        self.x = x
-        self.y = y
         self.image = img
         self.rect = self.image.get_rect()
         self.rect.x = x
@@ -131,7 +220,78 @@ class Tile(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
 
     def update(self):
-        screen.blit(self.image, pygame.Rect(self.x, self.y, self.width, self.height))
+        screen.blit(self.image, self.rect)
+
+
+class FunctionalAnimatedObject(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h, img_sprites):
+        super().__init__(all_sprites, all_blocks)
+        self.x = x
+        self.y = y
+        self.rect = pygame.rect.Rect(x, y, w, h)
+        functional_rects.append(self.rect)
+        self.frames = []
+        self.frames = cut_sheet(img_sprites, 5, 2)
+        self.index = 0
+        self.image = self.frames[0]
+        self.animation_time = 0.15
+        self.animation_clock = Timer()
+        self.is_used = False
+        self.is_using = False
+        functional_list.append(self)
+
+    def update(self):
+        if not self.is_used and self.is_using:
+            if self.animation_clock.get_time() >= self.animation_time:
+                self.animation_clock.stop()
+                self.animation_clock.start()
+                self.index += 1
+                if self.index >= len(self.frames):
+                    self.index = -1
+                    self.is_used = True
+                    all_blocks.remove(self)
+                    self.action()
+        screen.blit(self.frames[self.index], self.rect)
+
+    def use(self):
+        self.animation_clock.start()
+        self.is_using = True
+
+    def action(self):
+        pass
+
+
+class Chest(FunctionalAnimatedObject):
+    def action(self):
+        spawn_coins(self.x, self.y - 30, 5)
+
+
+class Item(pygame.sprite.Sprite):
+    def __init__(self, x, y, img):
+        super().__init__(all_sprites, all_items)
+        self.x = x
+        self.y = y
+        self.image = img
+        self.rect = self.image.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+
+    def update(self):
+        screen.blit(self.image, self.rect)
+
+
+class Coin(Item):
+    def __init__(self, x, y, points):
+        self.image = pygame.transform.scale_by(load_image("coin.png"), 2)
+        self.points = points
+        super().__init__(x, y, self.image)
+
+    def update(self):
+        collider = pygame.sprite.spritecollideany(self, player_group)
+        if collider:
+            collider.points += self.points
+            self.kill()
+        screen.blit(self.image, self.rect)
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -140,8 +300,8 @@ class Bullet(pygame.sprite.Sprite):
         self.is_player_collide = False
         self.direction = direction
         self.vx = -4 if direction == "L" else 4
-        self.frames = []
-        self.cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4)
+        self.frames = cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4, 1,
+                                flip=True if direction == "L" else False)
         self.cur_frame = 0
         self.image = self.frames[self.cur_frame]
         self.rect = pygame.Rect(x, y, 64, 32)
@@ -149,24 +309,10 @@ class Bullet(pygame.sprite.Sprite):
         self.animation_timer.start()
         self.animation_time = 0.1
 
-    def cut_sheet(self, sheet, columns):
-        x = sheet.get_width() // columns
-        y = 0
-        if self.direction == "L":
-            for i in range(columns):
-                self.frames.append(
-                    pygame.transform.flip(
-                        pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y, 32, 16)), 2), True,
-                        False))
-        else:
-            for i in range(columns):
-                self.frames.append(
-                    pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y, 32, 16)), 2))
-
     def update(self):
-        colliders = pygame.sprite.spritecollide(self, all_blocks, False)
-        if colliders and Tile.__name__ in colliders.__str__():
-            create_particles((self.rect.x, self.rect.y), "star.png")
+        colliders = pygame.sprite.spritecollideany(self, all_blocks)
+        if colliders:
+            AnimatedEffect(self.rect.x, self.rect.y, load_image("boom_effect.png"))
             self.kill()
         elif self.animation_timer.get_time() >= self.animation_time:
             self.cur_frame = 0 if self.cur_frame + 1 == len(self.frames) else self.cur_frame + 1
@@ -183,9 +329,9 @@ class Bullet(pygame.sprite.Sprite):
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h):
-        super().__init__(all_sprites, all_entities)
+        super().__init__(all_sprites, all_entities, player_group)
         self.hp = 100
-        self.rect = pygame.rect.Rect(x, y, w, h)
+        self.points = 0
 
         self.is_down = False
         self.is_walk = False
@@ -216,7 +362,10 @@ class Player(pygame.sprite.Sprite):
         self.anim_time = Timer()
         self.anim_time.start()
 
-        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = pygame.rect.Rect(x, y, w, h)
+        self.functional_rect = pygame.rect.Rect(x - w // 2, y - h // 2, w * 2, h * 2)
+
+        self.jumps = 0
 
     def init_images(self, animation):
         for key in self.images.keys():
@@ -231,6 +380,7 @@ class Player(pygame.sprite.Sprite):
                 self.ammo = 10
         self.move()
         self.draw()
+        pygame.draw.rect(screen, (0, 255, 0), self.functional_rect, 1)
 
     def draw(self):
         if self.is_attack:
@@ -270,6 +420,7 @@ class Player(pygame.sprite.Sprite):
         self.fall_speed += GRAVITY
         self.dy = round(self.fall_speed)
         self.rect.y += self.dy
+        self.functional_rect.y += self.dy
         self.is_down = True
 
     def move(self):
@@ -277,22 +428,27 @@ class Player(pygame.sprite.Sprite):
         colliders = pygame.sprite.spritecollide(self, all_blocks, False)
         if colliders:
             self.rect.y -= self.dy
+            self.functional_rect.y -= self.dy
             if self.dy > 0:
                 self.is_down = False
+                self.jumps = 0
                 self.fall_speed = 0
             elif self.dy < 0:
                 self.fall_speed = 0
         if not self.is_attack:
-            if keys[pygame.K_SPACE] and not self.is_down:
-                self.fall_speed = -10
+            if keys[pygame.K_SPACE] and self.jumps < 1:
+                self.jumps += 1
+                self.fall_speed = -8
             if keys[pygame.K_d]:
                 self.dx = self.walk_speed
                 self.rect.x += self.dx
+                self.functional_rect.x += self.dx
                 self.is_walk = True
                 self.direction = "R"
             elif keys[pygame.K_a]:
                 self.dx = -self.walk_speed
                 self.rect.x += self.dx
+                self.functional_rect.x += self.dx
                 self.is_walk = True
                 self.direction = "L"
             else:
@@ -303,8 +459,13 @@ class Player(pygame.sprite.Sprite):
         if colliders:
             self.is_walk = False
             self.rect.x -= self.dx
+            self.functional_rect.x -= self.dx
         self.dx = 0
         self.dy = 0
+        index = self.functional_rect.collidelist(functional_rects)
+        if index != -1:
+            if keys[pygame.K_e]:
+                functional_list[index].use()
 
     def shoot(self):
         if self.shoot_clock.get_time() > 0.5 and not self.is_reload:
@@ -375,7 +536,7 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self.player.shoot()
 
-            screen.fill((100, 0, 0))
+            screen.fill((58, 204, 250))
             all_sprites.update()
 
             self.interface.render()
