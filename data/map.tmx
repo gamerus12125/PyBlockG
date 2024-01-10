@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="2" nextobjectid="1">
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="3" nextobjectid="1">
  <tileset firstgid="1" source="Tiles.tsx"/>
  <tileset firstgid="626" source="Chests.tsx"/>
+ <tileset firstgid="686" source="Green Portal.tsx"/>
  <layer id="1" name="Слой тайлов 1" width="30" height="20">
   <data encoding="base64" compression="zlib">
-   eJztlG0KwjAMhuOml9DVS0znJRQ/7uAP/+oJ9Eh6Qd+wBsNw1kDqD1nggZaWPA2Ul2gorzoXRJfit84RuMJ5AyW1jOm1zlVTECKzSKXIVTVYgAYsI40iV63B5gP/5q0Hr6s39ORCDu83OeTp5QzizOnmkGTRRN31+M/s4/E4cyR/qjfMDV6ZoYy9dYbKXjx38KA2hySDZM0ZtDN4uzkqbw8K6bsHh54+W7AyeFPnFvS8qX+VOreg5031PTp6T8qb6vsEMWFCIw==
+   eJztlEsKwjAQhsdG17rWxktU6yUUH3dw4VZPoAeyoAfRm+gR/EMyMFRrCCRdiANfmT6YrwPhJ2qvzhlRlbUodHWD896Cdw/HQXge6J+JvR1whOMEFFn6uAyU7VPVEGjHyJELUlUBJqAEU0cpSFVzsPjCr3mLvzeqVzfkQApvPYdSe00Gdek9h5R73hPfxjjPxmfWM5nD+ZN/YBzg5R2Um829vGfPBVzJ5hBnEPcmg1YB3nqO8r9rAc9dg03DnCWYBXh970OQ+/rOle99CHJf39xtRO9OeH1zX2cNRyg=
   </data>
  </layer>
 </map>

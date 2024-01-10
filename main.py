@@ -48,15 +48,16 @@ def create_particles(position, image_name):
 
 
 def cut_sheet(sheet, columns, rows, mult=2, flip=False):
-    frames = []
+    old_frames = []
     x = sheet.get_width() // columns
     y = sheet.get_height() // rows
     for a in range(rows):
         for i in range(columns):
-            frames.append(
+            old_frames.append(
                 pygame.transform.flip(
                     pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y * a, x, y)), mult), flip, False))
-    return frames
+    frames = [image.subsurface(image.get_bounding_rect()) for image in old_frames]
+    return old_frames
 
 
 def spawn_coins(x, y, amount):
@@ -80,14 +81,16 @@ def generate_level(game_map):
                 image = game_map.get_tile_image_by_gid(tile_id)
                 tile_gid = game_map.tiledgidmap[tile_id]
                 if tile_gid == 626:
-                    Chest(x * 32, y * 32, 48, 32, load_image("Chests.png"))
-                elif tile_gid in [627, 641, 642]:
+                    Chest(x * 32, y * 32, 64, 64, load_image("Chests.png"), 5, 2)
+                elif tile_gid in [627, 641, 642, 720, 751, 752, 783, 784]:
                     pass
                 elif tile_gid in [0, 1, 2, 3, 4, 5,
                                   130]:  # проверка, что тайлы являются проходимыми блоками
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites)
                 elif game_map.tiledgidmap[tile_id] == 541:
                     Coin(x * 32, y * 32, 1)
+                elif game_map.tiledgidmap[tile_id] == 719:
+                    AnimatedObject(x * 32, y * 32, 64, 96, load_image("Green Portal Sprite Sheet.png"), 8, 1)
                 else:
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
 
@@ -223,19 +226,34 @@ class Tile(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
-class FunctionalAnimatedObject(pygame.sprite.Sprite):
-    def __init__(self, x, y, w, h, img_sprites):
+class AnimatedObject(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h, img_sprites, cols, rows):
         super().__init__(all_sprites, all_blocks)
         self.x = x
         self.y = y
         self.rect = pygame.rect.Rect(x, y, w, h)
-        functional_rects.append(self.rect)
-        self.frames = []
-        self.frames = cut_sheet(img_sprites, 5, 2)
+        self.frames = cut_sheet(img_sprites, cols, rows, mult=2)
         self.index = 0
         self.image = self.frames[0]
         self.animation_time = 0.15
         self.animation_clock = Timer()
+        self.animation_clock.start()
+
+    def update(self):
+        if self.animation_clock.get_time() >= self.animation_time:
+            self.animation_clock.stop()
+            self.animation_clock.start()
+            self.index += 1
+            if self.index >= len(self.frames):
+                self.index = 0
+        screen.blit(self.frames[self.index], self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+
+
+class FunctionalAnimatedObject(AnimatedObject):
+    def __init__(self, x, y, w, h, img_sprites, cols, rows):
+        super().__init__(x, y, w, h, img_sprites, cols, rows)
+        functional_rects.append(self.rect)
         self.is_used = False
         self.is_using = False
         functional_list.append(self)
@@ -252,6 +270,7 @@ class FunctionalAnimatedObject(pygame.sprite.Sprite):
                     all_blocks.remove(self)
                     self.action()
         screen.blit(self.frames[self.index], self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
 
     def use(self):
         self.animation_clock.start()
@@ -312,7 +331,7 @@ class Bullet(pygame.sprite.Sprite):
     def update(self):
         colliders = pygame.sprite.spritecollideany(self, all_blocks)
         if colliders:
-            AnimatedEffect(self.rect.x, self.rect.y, load_image("boom_effect.png"))
+            AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
             self.kill()
         elif self.animation_timer.get_time() >= self.animation_time:
             self.cur_frame = 0 if self.cur_frame + 1 == len(self.frames) else self.cur_frame + 1
@@ -345,6 +364,7 @@ class Player(pygame.sprite.Sprite):
         self.ammo = 10
         self.is_reload = False
         self.direction = "R"
+        self.reload_clock = Timer()
         self.shoot_clock = Timer()
         self.shoot_clock.start()
         sprites = {"idle": load_image("Pink_Monster_Idle_4.png"), "run": load_image("Pink_Monster_Run_6.png"),
@@ -375,9 +395,10 @@ class Player(pygame.sprite.Sprite):
 
     def update(self):
         if self.is_reload:
-            if self.shoot_clock.get_time() > 1:
+            if self.reload_clock.get_time() > 2:
                 self.is_reload = False
                 self.ammo = 10
+                self.reload_clock.stop()
         self.move()
         self.draw()
         pygame.draw.rect(screen, (0, 255, 0), self.functional_rect, 1)
@@ -404,12 +425,10 @@ class Player(pygame.sprite.Sprite):
             self.anim_time.stop()
             self.anim_time.start()
             self.index += 1
-            if self.index >= len(self.images[name]):
-                if name == "attack":
-                    Bullet(self.rect.x - 1, int(self.rect.y + 5), self.direction)
-                    self.is_attack = False
-                self.index = 0
         if self.index >= len(self.images[name]):
+            if name == "attack":
+                Bullet(self.rect.x + self.rect.w, int(self.rect.y + 5), self.direction)
+                self.is_attack = False
             self.index = 0
         self.image = self.images[name][self.index]
         screen.blit(pygame.transform.flip(self.images[name][self.index], flip, False),
@@ -470,9 +489,10 @@ class Player(pygame.sprite.Sprite):
     def shoot(self):
         if self.shoot_clock.get_time() > 0.5 and not self.is_reload:
             self.is_attack = True
-            self.index = -1
+            self.index = 0
             if not self.ammo:
                 self.is_reload = True
+                self.reload_clock.start()
                 self.shoot_clock.stop()
                 self.shoot_clock.start()
             else:
