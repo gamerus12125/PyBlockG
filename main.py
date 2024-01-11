@@ -14,6 +14,7 @@ all_blocks = pygame.sprite.Group()
 all_entities = pygame.sprite.Group()
 all_items = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
 functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
@@ -356,6 +357,7 @@ class Player(pygame.sprite.Sprite):
         self.is_walk = False
         self.is_idle = True
         self.is_attack = False
+        self.is_enemy = True
         self.fall_speed = 0
         self.dx = 0
         self.dy = 0
@@ -485,6 +487,11 @@ class Player(pygame.sprite.Sprite):
         if index != -1:
             if keys[pygame.K_e]:
                 functional_list[index].use()
+        damage = pygame.sprite.spritecollide(self, enemy_group, False)
+        if damage and self.is_enemy:
+            self.hp -= 25
+            self.is_enemy = False
+
 
     def shoot(self):
         if self.shoot_clock.get_time() > 0.5 and not self.is_reload:
@@ -501,6 +508,43 @@ class Player(pygame.sprite.Sprite):
                 self.shoot_clock.start()
 
 
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h):
+        super().__init__(all_sprites, enemy_group)
+        self.image = pygame.transform.scale(pygame.image.load("data/eyelander.png"), (w, h))
+        self.rect = pygame.rect.Rect(x, y, w, h)
+        self.pace_size = 2
+        self.pace_count = 0
+        self.speed = 100
+        self.direction = 1
+        self.pace_time = 0
+        self.turn_after = 40
+
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+
+    def update(self):
+        screen.blit(self.image, self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+        time_now = pygame.time.get_ticks()
+        if time_now > self.pace_time + self.speed:
+            self.pace_time = time_now
+            self.pace_count += 1
+            self.rect.x += self.direction * self.pace_size
+
+            if self.pace_count >= self.turn_after:
+                self.direction *= -1
+                self.pace_count = 0
+
+            if self.rect.x <= 0:
+                self.direction = 1
+                self.pace_count = 0
+            elif self.rect.x >= WIDTH - self.rect.width:
+                self.direction = -1
+                self.pace_count = 0
+
+
+
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -512,6 +556,7 @@ class Game:
         screen = pygame.display.set_mode(self.size)
 
         self.player = Player(0, 300, 60, 64)
+        Enemy(300, 300, 64, 32)
 
         self.interface = Interface(self.player)
 
