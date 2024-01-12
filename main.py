@@ -14,6 +14,7 @@ all_blocks = pygame.sprite.Group()
 all_entities = pygame.sprite.Group()
 all_items = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
+enemy_group = pygame.sprite.Group()
 functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
@@ -348,18 +349,22 @@ class Bullet(pygame.sprite.Sprite):
 
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h):
-        super().__init__(all_sprites, all_entities, player_group)
+        super().__init__(all_sprites, player_group)
         self.hp = 100
         self.points = 0
+        self.count = 0
 
         self.is_down = False
         self.is_walk = False
         self.is_idle = True
         self.is_attack = False
+        self.is_damage_resist = False
         self.fall_speed = 0
         self.dx = 0
         self.dy = 0
         self.walk_speed = 3
+        self.damage_resist_clock = Timer()
+        self.damge_indicator_clock = Timer()
 
         self.ammo = 10
         self.is_reload = False
@@ -399,8 +404,17 @@ class Player(pygame.sprite.Sprite):
                 self.is_reload = False
                 self.ammo = 10
                 self.reload_clock.stop()
+        if self.is_damage_resist:
+            if self.damge_indicator_clock.get_time() > 0.2:
+                self.draw()
+                self.damge_indicator_clock.stop()
+                self.damge_indicator_clock.start()
+            if self.damage_resist_clock.get_time() > 3:
+                self.is_damage_resist = False
+                self.damge_indicator_clock.stop()
+        else:
+            self.draw()
         self.move()
-        self.draw()
         pygame.draw.rect(screen, (0, 255, 0), self.functional_rect, 1)
 
     def draw(self):
@@ -485,6 +499,12 @@ class Player(pygame.sprite.Sprite):
         if index != -1:
             if keys[pygame.K_e]:
                 functional_list[index].use()
+        colliders = pygame.sprite.spritecollideany(self, enemy_group)
+        if colliders and not self.is_damage_resist:
+            self.hp -= 25
+            self.is_damage_resist = True
+            self.damage_resist_clock.start()
+            self.damge_indicator_clock.start()
 
     def shoot(self):
         if self.shoot_clock.get_time() > 0.5 and not self.is_reload:
@@ -501,6 +521,35 @@ class Player(pygame.sprite.Sprite):
                 self.shoot_clock.start()
 
 
+class Enemy(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h):
+        super().__init__(all_sprites, enemy_group)
+        self.image = pygame.transform.scale_by(pygame.image.load("data/eyelander.png"), 2)
+        self.rect = pygame.rect.Rect(x, y, w, h)
+        self.mx_dx = 200
+        self.dx = 0
+        self.direction = "L"
+
+    def update(self):
+        screen.blit(self.image, self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+        self.move()
+        damage = pygame.sprite.spritecollideany(self, all_entities)
+        if damage:
+            self.kill()
+
+    def move(self):
+        if self.direction == "L":
+            self.dx -= 1
+            self.rect.x -= 1
+        elif self.direction == "R":
+            self.dx += 1
+            self.rect.x += 1
+        if self.dx >= self.mx_dx or self.dx < 0:
+            self.direction = "R" if self.direction == "L" else "L"
+
+
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -512,6 +561,7 @@ class Game:
         screen = pygame.display.set_mode(self.size)
 
         self.player = Player(0, 300, 60, 64)
+        Enemy(300, 300, 64, 64)
 
         self.interface = Interface(self.player)
 
