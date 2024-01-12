@@ -331,7 +331,6 @@ class Bullet(pygame.sprite.Sprite):
 
     def update(self):
         colliders = pygame.sprite.spritecollideany(self, all_blocks)
-        enemy = pygame.sprite.spritecollideany(self, enemy_group)
         if colliders:
             AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
             self.kill()
@@ -346,9 +345,6 @@ class Bullet(pygame.sprite.Sprite):
             self.rect = self.rect.move(self.vx, 0)
             if self.rect.x > WIDTH:
                 self.kill()
-        if enemy:
-            AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
-            self.kill()
 
 
 class Player(pygame.sprite.Sprite):
