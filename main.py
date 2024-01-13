@@ -15,6 +15,7 @@ all_entities = pygame.sprite.Group()
 all_items = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 enemy_group = pygame.sprite.Group()
+portal_group = pygame.sprite.Group()
 functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
@@ -91,7 +92,8 @@ def generate_level(game_map):
                 elif game_map.tiledgidmap[tile_id] == 541:
                     Coin(x * 32, y * 32, 1)
                 elif game_map.tiledgidmap[tile_id] == 719:
-                    AnimatedObject(x * 32, y * 32, 64, 96, load_image("Green Portal Sprite Sheet.png"), 8, 1)
+                    AnimatedObject(x * 32, y * 32, 64, 96, load_image("Green Portal Sprite Sheet.png"), 8, 1,
+                                   portal_group)
                 else:
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
 
@@ -228,8 +230,8 @@ class Tile(pygame.sprite.Sprite):
 
 
 class AnimatedObject(pygame.sprite.Sprite):
-    def __init__(self, x, y, w, h, img_sprites, cols, rows):
-        super().__init__(all_sprites, all_blocks)
+    def __init__(self, x, y, w, h, img_sprites, cols, rows, *args):
+        super().__init__(all_sprites, *args)
         self.x = x
         self.y = y
         self.rect = pygame.rect.Rect(x, y, w, h)
@@ -319,7 +321,8 @@ class Bullet(pygame.sprite.Sprite):
         super().__init__(all_sprites, all_entities)
         self.is_player_collide = False
         self.direction = direction
-        self.vx = -4 if direction == "L" else 4
+        self.damage_value = 25
+        self.vx = -5 if direction == "L" else 5
         self.frames = cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4, 1,
                                 flip=True if direction == "L" else False)
         self.cur_frame = 0
@@ -331,6 +334,7 @@ class Bullet(pygame.sprite.Sprite):
 
     def update(self):
         colliders = pygame.sprite.spritecollideany(self, all_blocks)
+        enemy = pygame.sprite.spritecollideany(self, enemy_group)
         if colliders:
             AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
             self.kill()
@@ -345,6 +349,11 @@ class Bullet(pygame.sprite.Sprite):
             self.rect = self.rect.move(self.vx, 0)
             if self.rect.x > WIDTH:
                 self.kill()
+
+    def damage(self, enemy):
+        enemy.hp -= self.damage_value
+        AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
+        self.kill()
 
 
 class Player(pygame.sprite.Sprite):
@@ -405,7 +414,7 @@ class Player(pygame.sprite.Sprite):
                 self.ammo = 10
                 self.reload_clock.stop()
         if self.is_damage_resist:
-            if self.damge_indicator_clock.get_time() > 0.2:
+            if self.damge_indicator_clock.get_time() > 0.3:
                 self.draw()
                 self.damge_indicator_clock.stop()
                 self.damge_indicator_clock.start()
@@ -526,28 +535,35 @@ class Enemy(pygame.sprite.Sprite):
         super().__init__(all_sprites, enemy_group)
         self.image = pygame.transform.scale_by(pygame.image.load("data/eyelander.png"), 2)
         self.rect = pygame.rect.Rect(x, y, w, h)
+        self.hp = 50
+        self.mx_hp = 50
         self.mx_dx = 200
         self.dx = 0
+        self.vx = 1
         self.direction = "L"
 
     def update(self):
         screen.blit(self.image, self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), (self.rect.x, self.rect.y - 20, self.rect.w * (self.hp / self.mx_hp), 10))
+        pygame.draw.rect(screen, (0, 0, 0), (self.rect.x - 2, self.rect.y - 22, self.rect.w + 4, 14), 2)
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
         self.move()
         damage = pygame.sprite.spritecollideany(self, all_entities)
         if damage:
-            self.kill()
+            damage.damage(self)
+            if self.hp <= 0:
+                spawn_coins(self.rect.x + self.rect.w // 2, self.rect.y + self.rect.h, 2)
+                self.kill()
 
     def move(self):
         if self.direction == "L":
-            self.dx -= 1
-            self.rect.x -= 1
+            self.dx -= self.vx
+            self.rect.x -= self.vx
         elif self.direction == "R":
-            self.dx += 1
-            self.rect.x += 1
+            self.dx += self.vx
+            self.rect.x += self.vx
         if self.dx >= self.mx_dx or self.dx < 0:
             self.direction = "R" if self.direction == "L" else "L"
-
 
 
 class Game:
