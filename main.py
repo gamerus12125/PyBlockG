@@ -19,6 +19,12 @@ portal_group = pygame.sprite.Group()
 functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
+level = 2
+levels = ("map.tmx", "map1.tmx")
+player_hp = 100
+player_ammo = 10
+player_damage = 25
+is_level_generating = False
 
 
 def load_image(name, color_key=None):
@@ -84,18 +90,48 @@ def generate_level(game_map):
                 tile_gid = game_map.tiledgidmap[tile_id]
                 if tile_gid == 626:
                     Chest(x * 32, y * 32, 64, 64, load_image("Chests.png"), 5, 2)
-                elif tile_gid in [627, 641, 642, 720, 751, 752, 783, 784]:
+                elif tile_gid in [627, 641, 642, 720, 751, 752, 783, 784, 724, 755, 756, 787, 788]:
                     pass
                 elif tile_gid in [0, 1, 2, 3, 4, 5,
                                   130]:  # проверка, что тайлы являются проходимыми блоками
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites)
-                elif game_map.tiledgidmap[tile_id] == 541:
+                elif tile_gid == 541:
                     Coin(x * 32, y * 32, 1)
-                elif game_map.tiledgidmap[tile_id] == 719:
+                elif tile_gid == 719:
+                    Portal(x * 32, y * 32, 64, 96, load_image("Green Portal Sprite Sheet.png"), 8, 1,
+                           portal_group)
+                elif tile_gid == 723:
                     AnimatedObject(x * 32, y * 32, 64, 96, load_image("Green Portal Sprite Sheet.png"), 8, 1,
                                    portal_group)
+                    for i in player_group:
+                        i.rect.x = x * 32 + 64
+                        i.rect.y = y * 32
+                        i.functional_rect.x = x * 32 + 32
+                        i.functional_rect.y = y * 32 - 32
                 else:
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
+    if level == 3:
+        Shop(12 * 32, 15 * 32, pygame.transform.scale_by(load_image("Heart.png"), 2), 20, player_hp)
+        Shop(15 * 32, 15 * 32, pygame.transform.scale_by(load_image("Sword.png"), 2), 20, player_damage)
+
+
+
+def next_level():
+    global is_level_generating
+    if not is_level_generating:
+        is_level_generating = True
+        for sprite in all_sprites:
+            if "Player" not in sprite.__str__():
+                sprite.kill()
+
+        global level
+        level += 1
+        if level % 3 == 0:
+            lvl = load_level("trade_zone.tmx")
+        else:
+            lvl = load_level(random.choice(levels))
+        generate_level(lvl)
+        is_level_generating = False
 
 
 class Particle(pygame.sprite.Sprite):
@@ -229,6 +265,29 @@ class Tile(pygame.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+class Shop(pygame.sprite.Sprite):
+    def __init__(self, x, y, img, cost, param):
+        super().__init__(all_sprites)
+        self.rect = img.get_rect()
+        self.rect.x = x
+        self.rect.y = y
+        self.cost = cost
+        self.image = img
+        self.arrow = pygame.transform.scale_by(load_image("green_arrow_up.png"), 2)
+        self.param = param
+        self.font = pygame.font.Font(None, 48)
+        self.gem = load_image("GEM.png")
+        functional_rects.append(self.rect)
+        functional_list.append(self)
+
+    def update(self):
+        cost = self.font.render(str(self.cost), True, (255, 0, 0))
+        screen.blit(self.image, self.rect)
+        screen.blit(self.arrow, self.rect)
+        screen.blit(cost, (self.rect.x, self.rect.y - 32))
+        screen.blit(self.gem, (self.rect.x + 48, self.rect.y - 32))
+
+
 class AnimatedObject(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h, img_sprites, cols, rows, *args):
         super().__init__(all_sprites, *args)
@@ -251,6 +310,21 @@ class AnimatedObject(pygame.sprite.Sprite):
                 self.index = 0
         screen.blit(self.frames[self.index], self.rect)
         pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+
+
+class Portal(AnimatedObject):
+    def update(self):
+        if self.animation_clock.get_time() >= self.animation_time:
+            self.animation_clock.stop()
+            self.animation_clock.start()
+            self.index += 1
+            if self.index >= len(self.frames):
+                self.index = 0
+        screen.blit(self.frames[self.index], self.rect)
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+        colliders = pygame.sprite.spritecollideany(self, player_group)
+        if colliders:
+            next_level()
 
 
 class FunctionalAnimatedObject(AnimatedObject):
@@ -321,7 +395,7 @@ class Bullet(pygame.sprite.Sprite):
         super().__init__(all_sprites, all_entities)
         self.is_player_collide = False
         self.direction = direction
-        self.damage_value = 25
+        self.damage_value = player_damage
         self.vx = -5 if direction == "L" else 5
         self.frames = cut_sheet(load_image("All_Fire_Bullet_Pixel_16x16_00.png"), 4, 1,
                                 flip=True if direction == "L" else False)
@@ -359,7 +433,7 @@ class Bullet(pygame.sprite.Sprite):
 class Player(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h):
         super().__init__(all_sprites, player_group)
-        self.hp = 100
+        self.hp = player_hp
         self.points = 0
         self.count = 0
 
@@ -375,7 +449,7 @@ class Player(pygame.sprite.Sprite):
         self.damage_resist_clock = Timer()
         self.damge_indicator_clock = Timer()
 
-        self.ammo = 10
+        self.ammo = player_ammo
         self.is_reload = False
         self.direction = "R"
         self.reload_clock = Timer()
@@ -507,7 +581,12 @@ class Player(pygame.sprite.Sprite):
         index = self.functional_rect.collidelist(functional_rects)
         if index != -1:
             if keys[pygame.K_e]:
-                functional_list[index].use()
+                item = functional_list[index]
+                if item.__class__ == Shop and self.points >= item.cost:
+                    self.hp += 10
+                    self.points -= 10
+                elif item.__class__ == Chest:
+                    functional_list[index].use()
         colliders = pygame.sprite.spritecollideany(self, enemy_group)
         if colliders and not self.is_damage_resist:
             self.hp -= 25

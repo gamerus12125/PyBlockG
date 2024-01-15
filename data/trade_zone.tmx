@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="30" height="20" tilewidth="16" tileheight="16" infinite="0" nextlayerid="2" nextobjectid="1">
+ <tileset firstgid="1" source="Tiles.tsx"/>
+ <tileset firstgid="626" source="Chests.tsx"/>
+ <tileset firstgid="686" source="Green Portal.tsx"/>
+ <layer id="1" name="Слой тайлов 1" width="30" height="20">
+  <data encoding="base64" compression="zlib">
+   eJztjUEKgDAMBGNbzwp60tb//0ZB/6GgD3ALKYaiR/WShWnSTcgSqVQqlUql+kOzIVrM+zkjMiaRs6M/PshdkbFxTgEaS9QChz7alqujy5O+Zd/ezJ2Yyf1IhacGJfoOeBCYnv9e+HlNeyHDP/zTrXR7ACc7qQsP
+  </data>
+ </layer>
+</map>
