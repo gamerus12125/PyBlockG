@@ -5,7 +5,7 @@
  <tileset firstgid="686" source="Green Portal.tsx"/>
  <layer id="1" name="Слой тайлов 1" width="30" height="20">
   <data encoding="base64" compression="zlib">
-   eJy9lE1uwkAMhYcE1lSCFTRcoi0VdwD6cwdAbMsJ4EAUiVOwKlJ7D5DaA/Cs2KoZkUzchjzpS0ZK4jd+E9m56rSOnHuPKjRkfcBzX4HvGzwWyueA9fEKvkmUQqqBJdYrELuUJi43cbouS+QTcf066NI+mC5zqyhLHVWbvO6ZPnhg+gqrJMvEO6chGIGxYpSDRX6WDfVsAqZgxryU6Otn2ct5d2fwzcrwL9oU9KUM6wzZNtz/VLRfyVByzMtQKyuju4K+Fvlz6JJCOX/i+6+C5yln4c+hS/93KOdvfP8T8K1xTZlB/uwR9NmE+m1hs+34d89y92ce1R2ArUvnkMwgWdMMejb023Hnc1T2nigGXJdmwWtGnSfwaOh3GHhuwdJv6H+3oPsN1Z2U6DtXvqG6J+pGVK4=
+   eJy9lE1OwzAQhd38rItEVwnpJQqpcoeGvzsExJaeAA5EK3GKrkBq71EkOADPyowYrCS2hcmTvsRS4nmeSfSUGk8vkVKbaERD0hs830fwfYTHWvgcsf74Z98JeILHM4hVyxSXk7hdh/SJqH4CclAQOXEmCKVM1NZe50QJLohSEEorUINLQT2Aj8xZpuJZA+7APXET0Nec5Xzg3V1AXx9tHX31DBNCzzJVf5NrvzxDnuPQDKWKnhxYOPr6yMyhLtnmvMf+g2N28bcwc6jr/7bN+RP7vyy+E6rJGWRmDyO/ja3fUxx2Fv+cme9m5um6FXhVbQ5xBvFaZ9C1R7+Z+p2jfPZCUFFdnQW3PXWuwNKj35XluQ8+/dr+dx9kv7a6TUDfB+Frq/sN8QVTeA==
   </data>
  </layer>
 </map>
