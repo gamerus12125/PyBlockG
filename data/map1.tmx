@@ -5,7 +5,7 @@
  <tileset firstgid="686" source="Green Portal.tsx"/>
  <layer id="1" name="Слой тайлов 1" width="30" height="20">
   <data encoding="base64" compression="zlib">
-   eJztjVEKgDAMQ6ub3wr65ab3v42C3kNBD2CGFcLwV/xp4JG2hEbEZDKZTCbTH1pKkbX8tmPC/znrOLCfH/du+L9TRwFaJ9KBdH7w6o7cqzvaOceZ/FeNY+PuuQI9GJSgpDmSR71HysVsHygXXnI8j+ACRq0LAg==
+   eJztlNENgkAMhk8OnzXRJwWWQGAJjc6iE+hGTqKJ7qGJDuDfcA0VT85LlBdp8qWXQPnp34JSXXTRxb9EHFS0ET0QAi0y0f+x7gRMQQRicyYScc8aHmxa8kHGFpq7oPSG5H28oBpt6nxqyQ/yQnqSNFa81rOPPrUpmIFc5MJDtynkLtd3eg4WYCny6guavM/1neY5pBZdV78nvPfZsYc8P6Y+h0/6PUDjKHRuON8dutTP3kIhrrv6vUDjKnRGMGysq/0nQpPZS+ons8DPftev/KYGeNhQl/fz/sp/AZ0jkSPTD2vlhkxVXnK/kkI9z4XPNJsHsYkhxw==
   </data>
  </layer>
 </map>

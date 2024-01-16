@@ -1,3 +1,5 @@
+import json
+
 import pygame
 import os
 import time
@@ -19,12 +21,15 @@ portal_group = pygame.sprite.Group()
 functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
-level = 2
+level = 1
+level_name = "map"
 levels = ("map.tmx", "map1.tmx")
+enemies = {"map": [(300, 300), (100, 200)], "map1": [(400, 200), (200, 300)], "trade_zone": []}
 player_hp = 100
 player_ammo = 10
 player_damage = 25
 is_level_generating = False
+is_player_death = False
 
 
 def load_image(name, color_key=None):
@@ -48,6 +53,16 @@ def terminate():
     sys.exit()
 
 
+def clear_sprites():
+    for sprite in all_sprites:
+        if "Player" not in sprite.__str__():
+            sprite.kill()
+    global functional_rects
+    global functional_list
+    functional_rects = []
+    functional_list = []
+
+
 def create_particles(position, image_name):
     particle_count = 20
     numbers = range(-5, 6)
@@ -64,7 +79,6 @@ def cut_sheet(sheet, columns, rows, mult=2, flip=False):
             old_frames.append(
                 pygame.transform.flip(
                     pygame.transform.scale_by(sheet.subsurface(pygame.Rect(i * x, y * a, x, y)), mult), flip, False))
-    frames = [image.subsurface(image.get_bounding_rect()) for image in old_frames]
     return old_frames
 
 
@@ -110,26 +124,28 @@ def generate_level(game_map):
                         i.functional_rect.y = y * 32 - 32
                 else:
                     Tile(x * 32, y * 32, pygame.transform.scale_by(image, 2), all_sprites, all_blocks)
-    if level == 3:
-        Shop(12 * 32, 15 * 32, pygame.transform.scale_by(load_image("Heart.png"), 2), 20, player_hp)
-        Shop(15 * 32, 15 * 32, pygame.transform.scale_by(load_image("Sword.png"), 2), 20, player_damage)
-
+    if level_name == "trade_zone":
+        Shop(12 * 32, 15 * 32, pygame.transform.scale_by(load_image("Heart.png"), 2), 20, "hp")
+        Shop(15 * 32, 15 * 32, pygame.transform.scale_by(load_image("Sword.png"), 2), 20, "damage")
+    for coords in enemies[level_name]:
+        Enemy(coords[0], coords[1], 64, 64)
 
 
 def next_level():
     global is_level_generating
     if not is_level_generating:
         is_level_generating = True
-        for sprite in all_sprites:
-            if "Player" not in sprite.__str__():
-                sprite.kill()
-
+        clear_sprites()
         global level
+        global level_name
         level += 1
         if level % 3 == 0:
-            lvl = load_level("trade_zone.tmx")
+            lvl_name = "trade_zone.tmx"
+            lvl = load_level(lvl_name)
         else:
-            lvl = load_level(random.choice(levels))
+            lvl_name = random.choice(levels)
+            lvl = load_level(lvl_name)
+        level_name = lvl_name.split(".")[0]
         generate_level(lvl)
         is_level_generating = False
 
@@ -206,6 +222,7 @@ class Interface:
         self.red = (255, 0, 0)
         self.green = (0, 255, 0)
         self.blue = (0, 0, 255)
+        self.black = (0, 0, 0)
         self.player = player
 
         self.gem_frames = cut_sheet(load_image("GEM UI Spritesheet.png"), 16, 1, 1)
@@ -218,9 +235,11 @@ class Interface:
         ammo = self.font.render(str(self.player.ammo), True, self.red)
         health = self.font.render(str(self.player.hp), True, self.green)
         points = self.font.render(str(self.player.points), True, self.blue)
+        lvl = self.font.render(f"Уровень: {level}", True, self.black)
         screen.blit(ammo, (self.x, self.y))
         screen.blit(health, (self.x + self.width, self.y))
         screen.blit(points, (self.x + self.width * 2, self.y))
+        screen.blit(lvl, (WIDTH // 2, self.y))
         pygame.draw.rect(screen, self.green, (self.x + self.width - 10, self.y - 10, self.width, self.height), 5)
         pygame.draw.rect(screen, self.red, (self.x - 10, self.y - 10, 100, 50), 5)
         pygame.draw.rect(screen, self.blue, (self.x + self.width * 2 - 10, self.y - 10, self.width, self.height), 5)
@@ -408,7 +427,6 @@ class Bullet(pygame.sprite.Sprite):
 
     def update(self):
         colliders = pygame.sprite.spritecollideany(self, all_blocks)
-        enemy = pygame.sprite.spritecollideany(self, enemy_group)
         if colliders:
             AnimatedEffect(self.rect.x, self.rect.y - 10, load_image("boom_effect.png"))
             self.kill()
@@ -448,6 +466,8 @@ class Player(pygame.sprite.Sprite):
         self.walk_speed = 3
         self.damage_resist_clock = Timer()
         self.damge_indicator_clock = Timer()
+        self.is_using = False
+        self.use_clock = Timer()
 
         self.ammo = player_ammo
         self.is_reload = False
@@ -487,6 +507,10 @@ class Player(pygame.sprite.Sprite):
                 self.is_reload = False
                 self.ammo = 10
                 self.reload_clock.stop()
+        if self.is_using:
+            if self.use_clock.get_time() > 0.2:
+                self.is_using = False
+                self.use_clock.stop()
         if self.is_damage_resist:
             if self.damge_indicator_clock.get_time() > 0.3:
                 self.draw()
@@ -580,16 +604,25 @@ class Player(pygame.sprite.Sprite):
         self.dy = 0
         index = self.functional_rect.collidelist(functional_rects)
         if index != -1:
-            if keys[pygame.K_e]:
+            if keys[pygame.K_e] and not self.is_using:
                 item = functional_list[index]
+                self.is_using = True
+                self.use_clock.start()
                 if item.__class__ == Shop and self.points >= item.cost:
-                    self.hp += 10
-                    self.points -= 10
+                    if item.param == "hp":
+                        self.hp += 10
+                    else:
+                        global player_damage
+                        player_damage += 5
+                    self.points -= 20
                 elif item.__class__ == Chest:
                     functional_list[index].use()
         colliders = pygame.sprite.spritecollideany(self, enemy_group)
         if colliders and not self.is_damage_resist:
-            self.hp -= 25
+            self.hp -= int(25 * (level * 0.2 + 1))
+            if self.hp <= 0:
+                global is_player_death
+                is_player_death = True
             self.is_damage_resist = True
             self.damage_resist_clock.start()
             self.damge_indicator_clock.start()
@@ -614,8 +647,8 @@ class Enemy(pygame.sprite.Sprite):
         super().__init__(all_sprites, enemy_group)
         self.image = pygame.transform.scale_by(pygame.image.load("data/eyelander.png"), 2)
         self.rect = pygame.rect.Rect(x, y, w, h)
-        self.hp = 50
-        self.mx_hp = 50
+        self.hp = 50 * (int(level * 0.5) + 1)
+        self.mx_hp = 50 * (int(level * 0.5) + 1)
         self.mx_dx = 200
         self.dx = 0
         self.vx = 1
@@ -652,21 +685,22 @@ class Game:
         self.size = WIDTH, HEIGHT
         self.fps = 60
         self.clock = pygame.time.Clock()
+        with open("data/records.json", "r") as record_file:
+            level = json.load(record_file)["max_level"]
+        self.max_level = level
         global screen
         screen = pygame.display.set_mode(self.size)
-
-        self.player = Player(0, 300, 60, 64)
-        Enemy(300, 300, 64, 64)
-
-        self.interface = Interface(self.player)
 
         self.running = True
         self.start_screen()
         self.start_game()
+        while True:
+            self.end_screen()
 
     def start_screen(self):
         intro_text = ["PyGame", "",
-                      "Правила игры"]
+                      "Правила игры", "", "",
+                      f"Лучший результат: {self.max_level}"]
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
         font = pygame.font.Font(None, 30)
@@ -676,7 +710,7 @@ class Game:
             intro_rect = string_rendered.get_rect()
             text_coord += 10
             intro_rect.top = text_coord
-            intro_rect.x = 10
+            intro_rect.x = WIDTH // 3
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
 
@@ -690,24 +724,63 @@ class Game:
                     return
 
     def start_game(self):
-        level = load_level("map.tmx")
-        generate_level(level)
+        self.player = Player(0, 300, 60, 64)
+        interface = Interface(self.player)
+        lvl = load_level("map.tmx")
+        generate_level(lvl)
         while self.running:
             global keys
             keys = pygame.key.get_pressed()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.running = False
+                    terminate()
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self.player.shoot()
 
+            if is_player_death:
+                return
+
             screen.fill((58, 204, 250))
             all_sprites.update()
-
-            self.interface.render()
-
+            interface.render()
             pygame.display.flip()
             self.clock.tick(self.fps)
+
+    def end_screen(self):
+        global is_player_death
+        global level
+        clear_sprites()
+        self.player.kill()
+
+        end_text = ["ВЫ ПРОИГРАЛИ", "",
+                    f"Ваш результат:", "",
+                    f"Уровень: {level}",
+                    f"Лучший результат: {self.max_level}", "",
+                    f"Нажмите, чтобы начать начать с начала."]
+        fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        font = pygame.font.Font(None, 30)
+        text_coord = 50
+        for line in end_text:
+            string_rendered = font.render(line, 1, pygame.Color('black'))
+            intro_rect = string_rendered.get_rect()
+            text_coord += 10
+            intro_rect.top = text_coord
+            intro_rect.x = WIDTH // 3
+            text_coord += intro_rect.height
+            screen.blit(string_rendered, intro_rect)
+        pygame.display.flip()
+        is_player_death = False
+        level = 1
+        run = True
+        while run:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    terminate()
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    run = False
+                    break
+        self.start_game()
 
 
 if __name__ == '__main__':
