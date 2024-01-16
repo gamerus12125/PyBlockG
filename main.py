@@ -115,7 +115,6 @@ def generate_level(game_map):
         Shop(15 * 32, 15 * 32, pygame.transform.scale_by(load_image("Sword.png"), 2), 20, player_damage)
 
 
-
 def next_level():
     global is_level_generating
     if not is_level_generating:
@@ -645,6 +644,37 @@ class Enemy(pygame.sprite.Sprite):
             self.direction = "R" if self.direction == "L" else "L"
 
 
+class Button:
+    def __init__(self, x, y, width, height, text, image_load):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.text = text
+        self.sound = pygame.mixer.Sound("data/but.mp3")
+
+        self.image = pygame.image.load(image_load)
+        self.image = pygame.transform.scale(self.image, (self.width, self.height))
+        self.rect = self.image.get_rect(center=(x, y))
+        self.is_hovered = False
+
+    def draw(self, screen):
+        screen.blit(self.image, self.rect.topleft)
+
+        font = pygame.font.Font(None, 36)
+        text_s = font.render(self.text, True, (255, 255, 255))
+        text_r = text_s.get_rect(center=self.rect.center)
+        screen.blit(text_s, text_r)
+
+    def check_hover(self, mouse_pos):
+        self.is_hovered = self.rect.collidepoint(mouse_pos)
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_hovered:
+            self.sound.play()
+            pygame.event.post(pygame.event.Event(pygame.USEREVENT, button=self))
+
+
 class Game:
     def __init__(self):
         pygame.init()
@@ -662,32 +692,35 @@ class Game:
 
         self.running = True
         self.start_screen()
-        self.start_game()
 
     def start_screen(self):
-        intro_text = ["PyGame", "",
-                      "Правила игры"]
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
-        font = pygame.font.Font(None, 30)
-        text_coord = 50
-        for line in intro_text:
-            string_rendered = font.render(line, 1, pygame.Color('black'))
-            intro_rect = string_rendered.get_rect()
-            text_coord += 10
-            intro_rect.top = text_coord
-            intro_rect.x = 10
-            text_coord += intro_rect.height
-            screen.blit(string_rendered, intro_rect)
+        but_start = Button(WIDTH/2, 250, 254, 74, "Начать", "data/button.png")
+        but_game2 = Button(WIDTH/2, 350, 254, 74, "Динозаврик", "data/button.png")
 
         pygame.display.flip()
-        while True:
+        run = True
+        while run:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminate()
-                elif event.type == pygame.KEYDOWN or \
-                        event.type == pygame.MOUSEBUTTONDOWN:
-                    return
+                    run = False
+
+                if event.type == pygame.USEREVENT and event.button == but_start:
+                    self.start_game()
+
+                if event.type == pygame.USEREVENT and event.button == but_game2:
+                    print('wert')
+                    self.fade()
+
+                for btn in [but_start, but_game2]:
+                    btn.handle_event(event)
+
+            for btn in [but_start, but_game2]:
+                btn.check_hover(pygame.mouse.get_pos())
+                btn.draw(screen)
+            pygame.display.flip()
 
     def start_game(self):
         level = load_level("map.tmx")
@@ -697,6 +730,7 @@ class Game:
             keys = pygame.key.get_pressed()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
+                    terminate()
                     self.running = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     self.player.shoot()
@@ -705,6 +739,26 @@ class Game:
             all_sprites.update()
 
             self.interface.render()
+
+            pygame.display.flip()
+            self.clock.tick(self.fps)
+
+    def fade(self):
+        running = True
+        fade_alpha = 0
+        while running:
+            for event in pygame.event.get():
+                if event == pygame.QUIT:
+                    running = False
+
+            fade_s = pygame.Surface((WIDTH, HEIGHT))
+            fade_s.fill((0, 0, 0))
+            fade_s.set_alpha(fade_alpha)
+
+            fade_alpha += 5
+            if fade_alpha >= 105:
+                fade_alpha = 255
+                running = False
 
             pygame.display.flip()
             self.clock.tick(self.fps)
