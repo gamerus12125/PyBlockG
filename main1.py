@@ -678,37 +678,6 @@ class Enemy(pygame.sprite.Sprite):
             self.direction = "R" if self.direction == "L" else "L"
 
 
-class Button:
-    def __init__(self, x, y, width, height, text, image_load):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
-        self.text = text
-        self.sound = pygame.mixer.Sound("data/but.mp3")
-
-        self.image = pygame.image.load(image_load)
-        self.image = pygame.transform.scale(self.image, (self.width, self.height))
-        self.rect = self.image.get_rect(center=(x, y))
-        self.is_hovered = False
-
-    def draw(self, screen):
-        screen.blit(self.image, self.rect.topleft)
-
-        font = pygame.font.Font(None, 36)
-        text_s = font.render(self.text, True, (255, 255, 255))
-        text_r = text_s.get_rect(center=self.rect.center)
-        screen.blit(text_s, text_r)
-
-    def check_hover(self, mouse_pos):
-        self.is_hovered = self.rect.collidepoint(mouse_pos)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.is_hovered:
-            self.sound.play()
-            pygame.event.post(pygame.event.Event(pygame.USEREVENT, button=self))
-
-
 class Game:
     def __init__(self):
         pygame.init()
@@ -722,9 +691,6 @@ class Game:
         global screen
         screen = pygame.display.set_mode(self.size)
 
-        self.player = Player(0, 300, 60, 64)
-        self.interface = Interface(self.player)
-
         self.running = True
         self.start_screen()
         self.start_game()
@@ -732,16 +698,13 @@ class Game:
             self.end_screen()
 
     def start_screen(self):
-        fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
-        screen.blit(fon, (0, 0))
-        intro_text = ["'Название'", "",
+        intro_text = ["PyGame", "",
                       "Правила игры", "", "",
                       f"Лучший результат: {self.max_level}"]
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
         font = pygame.font.Font(None, 30)
         text_coord = 50
-        but_start = Button(WIDTH / 2, 400, 254, 74, "Начать", "data/button.png")
         for line in intro_text:
             string_rendered = font.render(line, 1, pygame.Color('black'))
             intro_rect = string_rendered.get_rect()
@@ -752,26 +715,17 @@ class Game:
             screen.blit(string_rendered, intro_rect)
 
         pygame.display.flip()
-        run = True
-        while run:
+        while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminate()
-                    run = False
-
-                if event.type == pygame.USEREVENT and event.button == but_start:
+                elif event.type == pygame.KEYDOWN or \
+                        event.type == pygame.MOUSEBUTTONDOWN:
                     return
 
-                but_start.handle_event(event)
-
-                but_start.check_hover(pygame.mouse.get_pos())
-                but_start.draw(screen)
-            pygame.display.flip()
-
     def start_game(self):
-        self.player.kill()
         self.player = Player(0, 300, 60, 64)
-        self.interface = Interface(self.player)
+        interface = Interface(self.player)
         lvl = load_level("map.tmx")
         generate_level(lvl)
         while self.running:
@@ -788,7 +742,7 @@ class Game:
 
             screen.fill((58, 204, 250))
             all_sprites.update()
-            self.interface.render()
+            interface.render()
             pygame.display.flip()
             self.clock.tick(self.fps)
 
@@ -797,7 +751,7 @@ class Game:
         global level
         clear_sprites()
         self.player.kill()
-        but_start = Button(WIDTH / 2, 400, 254, 74, "Начать заново", "data/button.png")
+
         end_text = ["ВЫ ПРОИГРАЛИ", "",
                     f"Ваш результат:", "",
                     f"Уровень: {level}",
@@ -814,7 +768,6 @@ class Game:
             intro_rect.x = WIDTH // 3
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
-        but_start.draw(screen)
         pygame.display.flip()
         is_player_death = False
         level = 1
@@ -823,33 +776,10 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminate()
-                if event.type == pygame.USEREVENT and event.button == but_start:
+                elif event.type == pygame.MOUSEBUTTONDOWN:
                     run = False
                     break
-                but_start.handle_event(event)
-            but_start.check_hover(pygame.mouse.get_pos())
-
         self.start_game()
-
-    def fade(self):
-        running = True
-        fade_alpha = 0
-        while running:
-            for event in pygame.event.get():
-                if event == pygame.QUIT:
-                    running = False
-
-            fade_s = pygame.Surface((WIDTH, HEIGHT))
-            fade_s.fill((0, 0, 0))
-            fade_s.set_alpha(fade_alpha)
-
-            fade_alpha += 5
-            if fade_alpha >= 105:
-                fade_alpha = 255
-                running = False
-
-            pygame.display.flip()
-            self.clock.tick(self.fps)
 
 
 if __name__ == '__main__':
