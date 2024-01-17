@@ -22,9 +22,10 @@ functional_rects = []
 functional_list = []
 screen_rect = (0, 0, WIDTH, HEIGHT)
 level = 1
+speed = 3
 level_name = "map"
 levels = ("map.tmx", "map1.tmx")
-enemies = {"map": [(300, 300), (100, 200)], "map1": [(400, 200), (200, 300)], "trade_zone": []}
+enemies = {"map": [(300, 300), (100, 200)], "map1": [(400, 200), (200, 300)], "trade_zone": [], "game2": []}
 player_hp = 100
 player_ammo = 10
 player_damage = 25
@@ -224,6 +225,7 @@ class Interface:
         self.blue = (0, 0, 255)
         self.black = (0, 0, 0)
         self.player = player
+        self.score = 0
 
         self.gem_frames = cut_sheet(load_image("GEM UI Spritesheet.png"), 16, 1, 1)
         self.index = 0
@@ -235,7 +237,10 @@ class Interface:
         ammo = self.font.render(str(self.player.ammo), True, self.red)
         health = self.font.render(str(self.player.hp), True, self.green)
         points = self.font.render(str(self.player.points), True, self.blue)
-        lvl = self.font.render(f"Уровень: {level}", True, self.black)
+        if level_name == "game2":
+            lvl = self.font.render(f"Счет:{self.score}", True, self.black)
+        else:
+            lvl = self.font.render(f"Уровень: {level}", True, self.black)
         screen.blit(ammo, (self.x, self.y))
         screen.blit(health, (self.x + self.width, self.y))
         screen.blit(points, (self.x + self.width * 2, self.y))
@@ -243,7 +248,6 @@ class Interface:
         pygame.draw.rect(screen, self.green, (self.x + self.width - 10, self.y - 10, self.width, self.height), 5)
         pygame.draw.rect(screen, self.red, (self.x - 10, self.y - 10, 100, 50), 5)
         pygame.draw.rect(screen, self.blue, (self.x + self.width * 2 - 10, self.y - 10, self.width, self.height), 5)
-
         if self.animation_clock.get_time() >= self.animation_time:
             self.index += 1
             if self.index >= len(self.gem_frames):
@@ -666,6 +670,9 @@ class Enemy(pygame.sprite.Sprite):
             if self.hp <= 0:
                 spawn_coins(self.rect.x + self.rect.w // 2, self.rect.y + self.rect.h, 2)
                 self.kill()
+        if keys[pygame.K_ESCAPE]:
+            self.kill()
+            pygame.display.flip()
 
     def move(self):
         if self.direction == "L":
@@ -676,6 +683,62 @@ class Enemy(pygame.sprite.Sprite):
             self.rect.x += self.vx
         if self.dx >= self.mx_dx or self.dx < 0:
             self.direction = "R" if self.direction == "L" else "L"
+
+
+class Enemy_R(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h):
+        super().__init__(all_sprites, enemy_group)
+        self.index = 0
+        self.interface = Interface(Player)
+        self.images = [pygame.transform.scale(pygame.image.load("data/Slime/1.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/2.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/4.png"), (w, h + 40))]
+        self.rect = pygame.rect.Rect(x, y, w, h)
+
+    def update(self):
+        screen.blit(self.images[self.index], (self.rect.x, self.rect.y - 35))
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+        if self.index == 3:
+            self.index = 0
+        else:
+            self.index += 1
+        self.move()
+
+    def move(self):
+        if self.rect.x < -60:
+            self.kill()
+        else:
+            self.rect.x -= speed
+
+
+class Enemy_L(pygame.sprite.Sprite):
+    def __init__(self, x, y, w, h):
+        super().__init__(all_sprites, enemy_group)
+        self.index = 0
+        self.speed = 3
+        self.interface = Interface(Player)
+        self.images = [pygame.transform.scale(pygame.image.load("data/Slime/1.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/2.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
+                       pygame.transform.scale(pygame.image.load("data/Slime/4.png"), (w, h + 40))]
+        self.rect = pygame.rect.Rect(x, y, w, h)
+
+    def update(self):
+        screen.blit(pygame.transform.flip(self.images[self.index], True, False),
+                    (self.rect.x, self.rect.y - 35))
+        pygame.draw.rect(screen, (255, 0, 0), self.rect, 1)
+        if self.index == 3:
+            self.index = 0
+        else:
+            self.index += 1
+        self.move()
+
+    def move(self):
+        if self.rect.x < -60:
+            self.kill()
+        else:
+            self.rect.x += speed
 
 
 class Button:
@@ -727,8 +790,7 @@ class Game:
 
         self.running = True
         self.start_screen()
-        self.start_game()
-        while True:
+        while is_player_death:
             self.end_screen()
 
     def start_screen(self):
@@ -742,6 +804,7 @@ class Game:
         font = pygame.font.Font(None, 30)
         text_coord = 50
         but_start = Button(WIDTH / 2, 400, 254, 74, "Начать", "data/button.png")
+        but_game2 = Button(WIDTH / 2, 550, 254, 74, "Другая игра", "data/button.png")
         for line in intro_text:
             string_rendered = font.render(line, 1, pygame.Color('black'))
             intro_rect = string_rendered.get_rect()
@@ -760,12 +823,18 @@ class Game:
                     run = False
 
                 if event.type == pygame.USEREVENT and event.button == but_start:
-                    return
+                    self.start_game()
+                    self.running = True
 
-                but_start.handle_event(event)
+                if event.type == pygame.USEREVENT and event.button == but_game2:
+                    self.game_2()
 
-                but_start.check_hover(pygame.mouse.get_pos())
-                but_start.draw(screen)
+                for btn in [but_start, but_game2]:
+                    btn.handle_event(event)
+
+            for btn in [but_start, but_game2]:
+                btn.check_hover(pygame.mouse.get_pos())
+                btn.draw(screen)
             pygame.display.flip()
 
     def start_game(self):
@@ -797,7 +866,6 @@ class Game:
         global level
         clear_sprites()
         self.player.kill()
-        but_start = Button(WIDTH / 2, 400, 254, 74, "Начать заново", "data/button.png")
         end_text = ["ВЫ ПРОИГРАЛИ", "",
                     f"Ваш результат:", "",
                     f"Уровень: {level}",
@@ -814,8 +882,7 @@ class Game:
             intro_rect.x = WIDTH // 3
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
-        but_start.draw(screen)
-        pygame.display.flip()
+            pygame.display.flip()
         is_player_death = False
         level = 1
         run = True
@@ -823,31 +890,47 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminate()
-                if event.type == pygame.USEREVENT and event.button == but_start:
-                    run = False
-                    break
-                but_start.handle_event(event)
-            but_start.check_hover(pygame.mouse.get_pos())
 
         self.start_game()
 
-    def fade(self):
-        running = True
-        fade_alpha = 0
-        while running:
+    def game_2(self):
+        global level_name
+        global speed
+        level_name = "game2"
+        self.interface = Interface(self.player)
+        lvl = load_level("game2.tmx")
+        generate_level(lvl)
+        spawnR_timer = pygame.USEREVENT + 1
+        pygame.time.set_timer(spawnR_timer, random.randint(4000, 5000))
+        spawnL_timer = pygame.USEREVENT + 3
+        pygame.time.set_timer(spawnL_timer, random.randint(5000, 6000))
+        score_timer = pygame.USEREVENT + 2
+        pygame.time.set_timer(score_timer, 500)
+        speed_timer = pygame.USEREVENT + 4
+        pygame.time.set_timer(speed_timer, 30000)
+        while self.running:
+            global keys
+            keys = pygame.key.get_pressed()
             for event in pygame.event.get():
-                if event == pygame.QUIT:
-                    running = False
+                if event.type == pygame.QUIT:
+                    terminate()
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.player.shoot()
+                if event.type == spawnR_timer:
+                    Enemy_R(WIDTH, 440, 60, 40)
+                if event.type == spawnL_timer:
+                    Enemy_L(-60, 440, 60, 40)
+                if event.type == score_timer:
+                    self.interface.score += 100
+                if event.type == speed_timer:
+                    speed += 2
 
-            fade_s = pygame.Surface((WIDTH, HEIGHT))
-            fade_s.fill((0, 0, 0))
-            fade_s.set_alpha(fade_alpha)
+            if is_player_death:
+                return
 
-            fade_alpha += 5
-            if fade_alpha >= 105:
-                fade_alpha = 255
-                running = False
-
+            screen.fill((58, 204, 250))
+            all_sprites.update()
+            self.interface.render()
             pygame.display.flip()
             self.clock.tick(self.fps)
 
