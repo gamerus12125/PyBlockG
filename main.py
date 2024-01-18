@@ -670,9 +670,6 @@ class Enemy(pygame.sprite.Sprite):
             if self.hp <= 0:
                 spawn_coins(self.rect.x + self.rect.w // 2, self.rect.y + self.rect.h, 2)
                 self.kill()
-        if keys[pygame.K_ESCAPE]:
-            self.kill()
-            pygame.display.flip()
 
     def move(self):
         if self.direction == "L":
@@ -790,8 +787,6 @@ class Game:
 
         self.running = True
         self.start_screen()
-        while is_player_death:
-            self.end_screen()
 
     def start_screen(self):
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
@@ -838,10 +833,12 @@ class Game:
             pygame.display.flip()
 
     def start_game(self):
+        global level_name
         self.player.kill()
         self.player = Player(0, 300, 60, 64)
+        level_name = "map"
         self.interface = Interface(self.player)
-        lvl = load_level("map.tmx")
+        lvl = load_level(level_name + ".tmx")
         generate_level(lvl)
         while self.running:
             global keys
@@ -853,7 +850,7 @@ class Game:
                     self.player.shoot()
 
             if is_player_death:
-                return
+                self.end_screen()
 
             screen.fill((58, 204, 250))
             all_sprites.update()
@@ -864,12 +861,20 @@ class Game:
     def end_screen(self):
         global is_player_death
         global level
+        global level_name
         clear_sprites()
         self.player.kill()
-        end_text = ["ВЫ ПРОИГРАЛИ", "",
-                    f"Ваш результат:", "",
-                    f"Уровень: {level}",
-                    f"Лучший результат: {self.max_level}"]
+        but_start = Button(WIDTH / 2, 400, 254, 74, "Начать занова", "data/button.png")
+        but_menu = Button(WIDTH / 2, 550, 254, 74, "В меню", "data/button.png")
+        if level_name == "game2":
+            end_text = ["ВЫ ПРОИГРАЛИ", "",
+                        f"Ваш результат:", "",
+                        f"Cчёт: {self.interface.score}"]
+        else:
+            end_text = ["ВЫ ПРОИГРАЛИ", "",
+                        f"Ваш результат:", "",
+                        f"Уровень: {level}",
+                        f"Лучший результат: {self.max_level}"]
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
         font = pygame.font.Font(None, 30)
@@ -882,7 +887,7 @@ class Game:
             intro_rect.x = WIDTH // 3
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
-            pygame.display.flip()
+        pygame.display.flip()
         is_player_death = False
         level = 1
         run = True
@@ -890,12 +895,23 @@ class Game:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     terminate()
+                if event.type == pygame.USEREVENT and event.button == but_start:
+                    self.start_game()
+                if event.type == pygame.USEREVENT and event.button == but_menu:
+                    self.start_screen()
 
-        self.start_game()
+                for btn in [but_start, but_menu]:
+                    btn.handle_event(event)
+            for btn in [but_start, but_menu]:
+                btn.check_hover(pygame.mouse.get_pos())
+                btn.draw(screen)
+            pygame.display.flip()
 
     def game_2(self):
         global level_name
         global speed
+        self.player.kill()
+        self.player = Player(0, 300, 60, 64)
         level_name = "game2"
         self.interface = Interface(self.player)
         lvl = load_level("game2.tmx")
@@ -926,7 +942,8 @@ class Game:
                     speed += 2
 
             if is_player_death:
-                return
+                self.end_screen()
+                self.player.kill()
 
             screen.fill((58, 204, 250))
             all_sprites.update()
