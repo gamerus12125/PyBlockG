@@ -686,7 +686,6 @@ class Enemy_R(pygame.sprite.Sprite):
     def __init__(self, x, y, w, h):
         super().__init__(all_sprites, enemy_group)
         self.index = 0
-        self.interface = Interface(Player)
         self.images = [pygame.transform.scale(pygame.image.load("data/Slime/1.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/2.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
@@ -714,7 +713,6 @@ class Enemy_L(pygame.sprite.Sprite):
         super().__init__(all_sprites, enemy_group)
         self.index = 0
         self.speed = 3
-        self.interface = Interface(Player)
         self.images = [pygame.transform.scale(pygame.image.load("data/Slime/1.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/2.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
@@ -777,8 +775,9 @@ class Game:
         self.fps = 60
         self.clock = pygame.time.Clock()
         with open("data/records.json", "r") as record_file:
-            level = json.load(record_file)["max_level"]
-        self.max_level = level
+            data = json.load(record_file)
+        self.max_level = data["max_level"]
+        self.max_points = data["max_points"]
         global screen
         screen = pygame.display.set_mode(self.size)
 
@@ -838,6 +837,7 @@ class Game:
         self.player = Player(0, 300, 60, 64)
         level_name = "map"
         self.interface = Interface(self.player)
+        self.interface.score = self.max_points
         lvl = load_level(level_name + ".tmx")
         generate_level(lvl)
         while self.running:
@@ -850,6 +850,9 @@ class Game:
                     self.player.shoot()
 
             if is_player_death:
+                with open("data/records.json", "w") as record_file:
+                    json.dump({"max_level": level}, record_file)
+                self.max_level = level
                 self.end_screen()
 
             screen.fill((58, 204, 250))
@@ -868,8 +871,9 @@ class Game:
         but_menu = Button(WIDTH / 2, 550, 254, 74, "В меню", "data/button.png")
         if level_name == "game2":
             end_text = ["ВЫ ПРОИГРАЛИ", "",
-                        f"Ваш результат:", "",
-                        f"Cчёт: {self.interface.score}"]
+                        "Ваш результат:", "",
+                        f"Cчёт: {self.interface.score}",
+                        f"Лучший счёт: {self.max_points}"]
         else:
             end_text = ["ВЫ ПРОИГРАЛИ", "",
                         f"Ваш результат:", "",
@@ -942,8 +946,11 @@ class Game:
                     speed += 2
 
             if is_player_death:
-                self.end_screen()
+                with open("data/records.json", "w") as record_file:
+                    json.dump({"max_points": self.interface.score}, record_file)
                 self.player.kill()
+                self.end_screen()
+
 
             screen.fill((58, 204, 250))
             all_sprites.update()
