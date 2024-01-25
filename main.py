@@ -1,5 +1,4 @@
 import json
-
 import pygame
 import os
 import time
@@ -691,6 +690,8 @@ class Enemy_R(pygame.sprite.Sprite):
                        pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/4.png"), (w, h + 40))]
         self.rect = pygame.rect.Rect(x, y, w, h)
+        self.clock = Timer()
+        self.clock.start()
 
     def update(self):
         screen.blit(self.images[self.index], (self.rect.x, self.rect.y - 35))
@@ -705,7 +706,7 @@ class Enemy_R(pygame.sprite.Sprite):
         if self.rect.x < -60:
             self.kill()
         else:
-            self.rect.x -= speed
+            self.rect.x -= speed * self.clock.get_time() // 10
 
 
 class Enemy_L(pygame.sprite.Sprite):
@@ -718,6 +719,8 @@ class Enemy_L(pygame.sprite.Sprite):
                        pygame.transform.scale(pygame.image.load("data/Slime/3.png"), (w, h + 40)),
                        pygame.transform.scale(pygame.image.load("data/Slime/4.png"), (w, h + 40))]
         self.rect = pygame.rect.Rect(x, y, w, h)
+        self.clock = Timer()
+        self.clock.start()
 
     def update(self):
         screen.blit(pygame.transform.flip(self.images[self.index], True, False),
@@ -733,7 +736,7 @@ class Enemy_L(pygame.sprite.Sprite):
         if self.rect.x < -60:
             self.kill()
         else:
-            self.rect.x += speed
+            self.rect.x += speed * self.clock.get_time() // 10
 
 
 class Button:
@@ -790,9 +793,13 @@ class Game:
     def start_screen(self):
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
-        intro_text = ["'Название'", "",
-                      "Правила игры", "", "",
-                      f"Лучший результат: {self.max_level}"]
+        intro_text = ["Время Зайца", "",
+                      "Правила игры:", "Перемещение на A, D, прыжок на Пробел, Стрелять на ЛКМ.",
+                      "Вы получаете урон от столкновения с врагами. Враги получают урон от ваших снарядов.",
+                      "Очки здоровья и урон можно увеличивать с помощью кристаллов выпадающих с врагов.",
+                      f"Лучший результат уровня: {self.max_level}",
+                      f"Лучший результат очков: {self.max_points}"
+                      ]
         fon = pygame.transform.scale(load_image('fon.png'), (WIDTH, HEIGHT))
         screen.blit(fon, (0, 0))
         font = pygame.font.Font(None, 30)
@@ -804,7 +811,7 @@ class Game:
             intro_rect = string_rendered.get_rect()
             text_coord += 10
             intro_rect.top = text_coord
-            intro_rect.x = WIDTH // 3
+            intro_rect.x = 10
             text_coord += intro_rect.height
             screen.blit(string_rendered, intro_rect)
 
@@ -850,9 +857,9 @@ class Game:
                     self.player.shoot()
 
             if is_player_death:
+                self.max_level = level if level > self.max_level else self.max_level
                 with open("data/records.json", "w") as record_file:
-                    json.dump({"max_level": level}, record_file)
-                self.max_level = level
+                    json.dump({"max_level": level, "max_points": self.max_points}, record_file)
                 self.end_screen()
 
             screen.fill((58, 204, 250))
@@ -946,11 +953,11 @@ class Game:
                     speed += 2
 
             if is_player_death:
+                self.max_points = level if level > self.max_points else self.max_points
                 with open("data/records.json", "w") as record_file:
-                    json.dump({"max_points": self.interface.score}, record_file)
+                    json.dump({"max_level": self.max_level, "max_points": self.interface.score}, record_file)
                 self.player.kill()
                 self.end_screen()
-
 
             screen.fill((58, 204, 250))
             all_sprites.update()
